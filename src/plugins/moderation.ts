@@ -1,15 +1,23 @@
 import { FastifyPluginAsync } from 'fastify';
 import { ModerationService } from '../services/moderationService';
 
-declare module 'fastify' {
-  interface FastifyInstance {
-    moderationService: ModerationService;
-  }
-}
-
 export const moderationPlugin: FastifyPluginAsync = async (fastify) => {
-  // Регистрируем сервис модерации как часть Fastify instance
-  fastify.decorate('moderationService', ModerationService.getInstance());
+  // Register moderation service if not already registered
+  if (!fastify.moderationService) {
+    fastify.decorate('moderationService', ModerationService.getInstance());
+  }
 
-  fastify.log.info('Moderation service plugin registered');
+  // Check service availability
+  const hasModerationService = !!fastify.moderationService;
+  const hasModerateText = typeof fastify.moderationService?.moderateText === 'function';
+
+  fastify.log.info({
+    message: 'Moderation plugin status',
+    hasModerationService,
+    hasModerateText,
+  });
+
+  if (!hasModerationService) {
+    fastify.log.warn('ModerationService is not available');
+  }
 };

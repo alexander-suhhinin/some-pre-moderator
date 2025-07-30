@@ -1,5 +1,5 @@
 import { TextEvaluator } from '../utils/evaluateText';
-import { ModerationRequest, ModerationResult } from '../types';
+import { ModerationRequest, ModerationResult, ImageData, VideoData } from '../types';
 
 export class ModerationService {
   private static instance: ModerationService;
@@ -20,11 +20,7 @@ export class ModerationService {
     return ModerationService.instance;
   }
 
-  public async moderateContent(request: ModerationRequest): Promise<ModerationResult> {
-    return await this.textEvaluator.evaluateText(request.text, request.images);
-  }
-
-  public async moderateText(text: string, images?: any[]): Promise<ModerationResult> {
-    return await this.textEvaluator.evaluateText(text, images);
+  public async moderateText(text: string, images?: ImageData[], videos?: VideoData[]): Promise<ModerationResult> {
+    return await this.textEvaluator.evaluateText(text, images, videos);
   }
 }

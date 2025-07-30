@@ -1,88 +1,147 @@
 import OpenAI from 'openai';
-import { ModerationResult, AIProvider, OpenAIResponse, PerspectiveResponse, ImageData, ImageModerationResult, OpenAIImageResponse } from '../types';
+import { ModerationResult, AIProvider, OpenAIResponse, PerspectiveResponse, ImageData, ImageModerationResult, OpenAIImageResponse, VideoData, VideoModerationResult } from '../types';
+import { VideoAnalyzer } from './videoAnalyzer';
 
 export class TextEvaluator {
-  private openai: OpenAI;
-  private aiProvider: AIProvider;
+  private openai: any;
   private perspectiveApiKey: string;
   private perspectiveApiUrl: string;
+  private aiProvider: 'openai' | 'perspective';
+  private videoAnalyzer: VideoAnalyzer;
 
   constructor(
     openaiApiKey: string,
     perspectiveApiKey: string,
-    aiProvider: AIProvider = 'openai'
+    aiProvider: 'openai' | 'perspective' = 'openai'
   ) {
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
     this.perspectiveApiKey = perspectiveApiKey;
     this.perspectiveApiUrl = process.env.PERSPECTIVE_API_URL || 'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze';
     this.aiProvider = aiProvider;
+
+    if (aiProvider === 'openai') {
+      this.openai = new OpenAI({
+        apiKey: openaiApiKey,
+      });
+    }
+
+    this.videoAnalyzer = new VideoAnalyzer();
   }
 
-  async evaluateText(text: string, images?: ImageData[]): Promise<ModerationResult> {
+  async evaluateText(text: string, images?: ImageData[], videos?: VideoData[]): Promise<ModerationResult> {
     try {
-      let textResult: ModerationResult;
+      const results: (ModerationResult | ImageModerationResult | VideoModerationResult)[] = [];
 
-      if (this.aiProvider === 'openai') {
-        textResult = await this.evaluateWithOpenAI(text);
-      } else {
-        textResult = await this.evaluateWithPerspective(text);
+      if (text && text.trim()) {
+        const textResult = await this.evaluateTextContent(text);
+        results.push(textResult);
       }
 
-      // If no images, return text result only
-      if (!images || images.length === 0) {
-        return textResult;
-      }
-
-      // Evaluate images if provided
-      const imageResults: ImageModerationResult[] = [];
-      for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        if (image) {
-          const imageResult = await this.evaluateImage(image, i);
-          imageResults.push(imageResult);
+      if (images && images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          const image = images[i];
+          if (image) {
+            const imageResult = await this.evaluateImage(image, i);
+            results.push(imageResult);
+          }
         }
       }
 
-      // Combine results - if any image is unsafe, the whole content is unsafe
-      const unsafeImages = imageResults.filter(result => !result.isSafe);
-      const isOverallSafe = textResult.isSafe && unsafeImages.length === 0;
-
-      const result: ModerationResult = {
-        isSafe: isOverallSafe,
-        confidence: Math.max(
-          textResult.confidence || 0,
-          ...imageResults.map(r => r.confidence || 0)
-        ),
-        flags: [
-          ...(textResult.flags || []),
-          ...imageResults.flatMap(r => r.flags || [])
-        ],
-        imageResults
-      };
-
-      if (!isOverallSafe) {
-        result.reason = textResult.reason || unsafeImages[0]?.reason || 'inappropriate content detected';
+      if (videos && videos.length > 0) {
+        for (let i = 0; i < videos.length; i++) {
+          const video = videos[i];
+          if (video) {
+            const videoResult = await this.videoAnalyzer.analyzeVideo(video, i);
+            results.push(videoResult);
+          }
+        }
       }
 
-      return result;
+      return this.combineResults(results);
     } catch (error) {
       console.error('Error evaluating content:', error);
-      throw new Error('Failed to evaluate content');
+      return {
+        isSafe: false,
+        reason: 'Failed to evaluate content',
+        confidence: 0.5,
+        flags: ['evaluation_error']
+      };
     }
   }
 
-  private async evaluateImage(image: ImageData, index: number): Promise<ImageModerationResult> {
+  private async evaluateTextContent(text: string): Promise<ModerationResult> {
+    if (this.aiProvider === 'openai') {
+      return await this.evaluateWithOpenAI(text);
+    } else {
+      return await this.evaluateWithPerspective(text);
+    }
+  }
+
+  private combineResults(results: (ModerationResult | ImageModerationResult | VideoModerationResult)[]): ModerationResult {
+    if (results.length === 0) {
+      return {
+        isSafe: true,
+        reason: 'No content to evaluate',
+        confidence: 1.0,
+        flags: []
+      };
+    }
+
+    // Checking for rejected content
+    const rejectedResults = results.filter(result => {
+      if ('result' in result) {
+        return result.result === 'rejected';
+      }
+      return !result.isSafe;
+    });
+
+    if (rejectedResults.length > 0) {
+      const reasons = rejectedResults.map(result => {
+        if ('result' in result) {
+          return result.reason || 'Content rejected';
+        }
+        return result.reason || 'Unsafe content detected';
+      });
+
+      const allFlags = results.flatMap(result => result.flags || []);
+
+      return {
+        isSafe: false,
+        reason: reasons.join('; '),
+        confidence: this.calculateAverageConfidence(results),
+        flags: [...new Set(allFlags)]
+      };
+    }
+
+    // All ok.
+    const allFlags = results.flatMap(result => result.flags || []);
+
+    return {
+      isSafe: true,
+      reason: 'All content is safe',
+      confidence: this.calculateAverageConfidence(results),
+      flags: [...new Set(allFlags)]
+    };
+  }
+
+  private calculateAverageConfidence(results: (ModerationResult | ImageModerationResult | VideoModerationResult)[]): number {
+    const confidences = results.map(result => result.confidence || 1.0);
+    return confidences.reduce((sum, conf) => sum + conf, 0) / confidences.length;
+  }
+
+  public async evaluateImage(image: ImageData, index: number): Promise<ImageModerationResult> {
     try {
+      const visionModel = process.env.OPENAI_VISION_MODEL || 'gpt-4o';
+
       // Use OpenAI Vision API for image analysis
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4-vision-preview",
+        model: visionModel,
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Analyze this image for inappropriate content. Check for: 1) Adult/sexual content 2) Violence/gore 3) Hate symbols 4) Self-harm content 5) Illegal activities. Respond with JSON format: {\"isSafe\": boolean, \"reason\": string, \"confidence\": number, \"flags\": [string], \"detectedObjects\": [string], \"adultContent\": boolean, \"violence\": boolean, \"hate\": boolean}"
+                text: "Analyze this image for inappropriate content. Check for: 1) Adult/sexual content 2) Violence/gore 3) Hate symbols 4) Self-harm content 5) Illegal activities. Respond with valid JSON format only: {\"isSafe\": boolean, \"reason\": string, \"confidence\": number, \"flags\": [string], \"detectedObjects\": [string], \"adultContent\": boolean, \"violence\": boolean, \"hate\": boolean}"
               },
               {
                 type: "image_url",
@@ -101,13 +160,42 @@ export class TextEvaluator {
         throw new Error('No response from OpenAI Vision API');
       }
 
+      // Clean the response content - remove markdown formatting if present
+      let cleanContent = content.trim();
+
+      // Remove markdown code blocks if present
+      if (cleanContent.startsWith('```json')) {
+        cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+
       // Parse the JSON response
-      const analysis = JSON.parse(content);
+      let analysis;
+      try {
+        analysis = JSON.parse(cleanContent);
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', cleanContent);
+        console.error('Parse error:', parseError);
+
+        // Fallback: try to extract JSON from the response
+        const jsonMatch = cleanContent.match(/\{.*\}/s);
+        if (jsonMatch) {
+          try {
+            analysis = JSON.parse(jsonMatch[0]);
+          } catch (fallbackError) {
+            console.error('Fallback JSON parsing also failed:', fallbackError);
+            throw new Error('Unable to parse AI response as JSON');
+          }
+        } else {
+          throw new Error('No JSON found in AI response');
+        }
+      }
 
       return {
         imageIndex: index,
         isSafe: analysis.isSafe || false,
-        reason: analysis.reason,
+        reason: analysis.reason || 'Image analyzed',
         confidence: analysis.confidence || 0.5,
         flags: analysis.flags || [],
         detectedObjects: analysis.detectedObjects || [],

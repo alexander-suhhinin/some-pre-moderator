@@ -24,6 +24,7 @@ export interface ModerationResult {
   confidence?: number;
   flags?: string[];
   imageResults?: ImageModerationResult[];
+  videoResults?: VideoModerationResult[];
 }
 
 export interface ImageModerationResult {
@@ -125,4 +126,55 @@ export interface PerspectiveResponse {
   };
   languages: string[];
   detectedLanguages: string[];
+}
+
+export interface VideoData {
+  url?: string;
+  base64?: string;
+  contentType?: string;
+  duration?: number; // в секундах
+  frameRate?: number;
+  resolution?: {
+    width: number;
+    height: number;
+  };
+  size?: number; // в байтах
+}
+
+export interface VideoModerationResult {
+  videoIndex: number;
+  isSafe: boolean;
+  reason: string;
+  confidence: number;
+  flags: string[];
+  frameResults: ImageModerationResult[];
+  audioTranscription?: string;
+  audioModerationResult?: ModerationResult;
+  metadata: {
+    duration: number;
+    frameCount: number;
+    resolution: string;
+    size: number;
+  };
+}
+
+export interface VideoModerationRequest {
+  text?: string;
+  images?: ImageData[];
+  videos?: VideoData[];
+}
+
+export interface VideoModerationResponse {
+  result: 'ok' | 'rejected';
+  reason?: string;
+  confidence: number;
+  flags: string[];
+  imageResults?: ImageModerationResult[];
+  videoResults?: VideoModerationResult[];
+  audioTranscription?: string;
+  metadata: {
+    totalFrames: number;
+    totalDuration: number;
+    totalSize: number;
+  };
 }

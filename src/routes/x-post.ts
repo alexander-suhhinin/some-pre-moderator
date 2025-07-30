@@ -137,49 +137,59 @@ export const xPostRoute: FastifyPluginAsync = async (fastify) => {
           message: 'Processing X post request',
           textLength: text.length,
           imageCount: images?.length || 0,
-          replyTo,
-          quoteTweet,
           ip: request.ip,
         });
 
-        // First, moderate the content
+        // Проверяем, что сервисы доступны
+        if (!fastify.moderationService) {
+          fastify.log.error('ModerationService is not available');
+          return reply.status(500).send({
+            success: false,
+            error: 'Moderation service not available',
+            moderationResult: {
+              result: 'rejected' as const,
+              reason: 'Moderation service not available',
+            },
+          });
+        }
+
+        if (!fastify.xApiService) {
+          fastify.log.error('XApiService is not available');
+          return reply.status(500).send({
+            success: false,
+            error: 'X API service not available',
+            moderationResult: {
+              result: 'rejected' as const,
+              reason: 'X API service not available',
+            },
+          });
+        }
+
         const moderationResult = await fastify.moderationService.moderateText(text, images);
 
-        // If content is not safe, reject the post
         if (!moderationResult.isSafe) {
-          const moderationResponse: ModerationResponse = {
-            result: 'rejected',
-          };
-
-          if (moderationResult.reason) {
-            moderationResponse.reason = moderationResult.reason;
-          }
-          if (moderationResult.confidence) {
-            moderationResponse.confidence = moderationResult.confidence;
-          }
-          if (moderationResult.flags) {
-            moderationResponse.flags = moderationResult.flags;
-          }
-          if (moderationResult.imageResults) {
-            moderationResponse.imageResults = moderationResult.imageResults;
-          }
-
-          const response: XPostResponse = {
-            success: false,
-            moderationResult: moderationResponse,
-            error: `Content rejected: ${moderationResult.reason || 'inappropriate content'}`,
-          };
-
-          fastify.log.warn({
-            message: 'X post rejected due to inappropriate content',
+          fastify.log.info({
+            message: 'Content rejected by moderation',
             reason: moderationResult.reason,
+            flags: moderationResult.flags,
             ip: request.ip,
           });
 
-          return reply.status(400).send(response);
+          const moderationResponse: ModerationResponse = {
+            result: 'rejected' as const,
+            ...(moderationResult.reason && { reason: moderationResult.reason }),
+            ...(moderationResult.confidence && { confidence: moderationResult.confidence }),
+            ...(moderationResult.flags && { flags: moderationResult.flags }),
+            ...(moderationResult.imageResults && { imageResults: moderationResult.imageResults }),
+          };
+
+          return reply.status(400).send({
+            success: false,
+            error: 'Content rejected by moderation',
+            moderationResult: moderationResponse,
+          });
         }
 
-        // If content is safe, proceed with posting to X
         const xApiResponse = await fastify.xApiService.postTweet({
           text,
           ...(images && { images }),
@@ -191,10 +201,7 @@ export const xPostRoute: FastifyPluginAsync = async (fastify) => {
           throw new Error(xApiResponse.error || 'Failed to post to X');
         }
 
-        const moderationResponse: ModerationResponse = {
-          result: 'ok',
-        };
-
+        const moderationResponse: ModerationResponse = { result: 'ok' };
         if (moderationResult.confidence) {
           moderationResponse.confidence = moderationResult.confidence;
         }
@@ -212,9 +219,8 @@ export const xPostRoute: FastifyPluginAsync = async (fastify) => {
         };
 
         fastify.log.info({
-          message: 'X post successful',
+          message: 'X post completed successfully',
           tweetId: xApiResponse.tweetId,
-          mediaCount: images?.length || 0,
           ip: request.ip,
         });
 
@@ -228,11 +234,11 @@ export const xPostRoute: FastifyPluginAsync = async (fastify) => {
 
         return reply.status(500).send({
           success: false,
+          error: error instanceof Error ? error.message : 'Failed to process X post request',
           moderationResult: {
             result: 'rejected' as const,
             reason: 'Failed to process X post request',
           },
-          error: 'Internal server error',
         });
       }
     }

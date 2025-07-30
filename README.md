@@ -1,144 +1,64 @@
 # Content Moderation API
 
-A production-ready Fastify-based API service for filtering problematic content before posting to social media. The service uses AI-powered content moderation through OpenAI's Moderation API and Google's Perspective API.
+A production-ready Fastify-based API service for content moderation using TypeScript, with support for text, images, and video content.
 
 ## Features
 
-- 🚀 **Fastify-based** - High-performance Node.js web framework
-- 🤖 **AI-Powered Moderation** - Support for OpenAI and Perspective API
-- 🖼️ **Image Moderation** - Analyze images for inappropriate content using OpenAI Vision API
-- 🐦 **X (Twitter) Integration** - Post content to X with automatic moderation (Production-ready with real Twitter API)
-- 🔄 **API Switching** - Easy switching between AI providers
-- 🛡️ **Rate Limiting** - IP-based rate limiting with configurable limits
-- 📊 **Structured Logging** - JSON logging with timestamps
-- 🐳 **Docker Ready** - Production-ready Docker container
-- 🔒 **Security** - Helmet.js security headers and CORS protection
-- 📝 **OpenAPI Schema** - Auto-generated API documentation
-- 🏥 **Health Checks** - Built-in health monitoring endpoint
+- **Text Moderation**: Analyzes text content for safety and toxicity
+- **Image Moderation**: Analyzes images for inappropriate content using OpenAI Vision API
+- **Video Moderation**: Analyzes videos by extracting frames and audio for comprehensive content review
+- **Multiple AI Providers**: Support for OpenAI and Google Perspective API
+- **Rate Limiting**: IP-based rate limiting (10 requests/minute by default)
+- **X (Twitter) Integration**: Post content to Twitter with automatic moderation
+- **Comprehensive Logging**: Structured JSON logging with timestamps
+- **Docker Support**: Complete containerization for easy deployment
+- **TypeScript**: Full type safety and modern development experience
 
-## Quick Start
+## Video Moderation Capabilities
 
-### Prerequisites
+The API can analyze video content through multiple approaches:
 
-- Node.js 18+
-- npm or yarn
-- OpenAI API key (optional)
-- Google Perspective API key (optional)
+1. **Frame Analysis**: Extracts key frames from video (every 2 seconds, max 10 frames)
+2. **Audio Transcription**: Uses OpenAI Whisper to transcribe audio content
+3. **Content Analysis**: Analyzes both visual and audio content for inappropriate material
+4. **Metadata Analysis**: Reviews video properties (duration, resolution, size)
 
-### Local Development
+### Supported Video Features
 
-1. **Clone and install dependencies:**
-   ```bash
-   git clone <repository-url>
-   cd content-moderation-api
-   npm install
-   ```
+- **Format Support**: MP4, AVI, MOV, and other formats supported by FFmpeg
+- **Frame Extraction**: Automatic key frame extraction for visual analysis
+- **Audio Processing**: Audio extraction and transcription for text analysis
+- **Comprehensive Results**: Detailed analysis results including confidence scores and flags
 
-2. **Set up environment variables:**
-   ```bash
-   cp env.example .env
-   # Edit .env with your API keys and configuration
-   ```
+## API Endpoints
 
-3. **Start development server:**
-   ```bash
-   npm run dev
-   ```
+### POST /moderate
 
-4. **Test the API:**
-   ```bash
-   curl -X POST http://localhost:3000/api/v1/moderate \
-     -H "Content-Type: application/json" \
-     -d '{"text": "Hello, this is a test message!"}'
-   ```
+Moderates text, images, and video content.
 
-### 🐦 **Twitter API Setup (Production)**
-
-For real X (Twitter) posting functionality, see [Twitter API Setup Guide](TWITTER_API_SETUP.md).
-
-**Quick setup:**
-```bash
-# Add Twitter API credentials to .env
-TWITTER_BEARER_TOKEN=your_bearer_token
-TWITTER_API_KEY=your_api_key
-TWITTER_API_SECRET=your_api_secret
-TWITTER_ACCESS_TOKEN=your_access_token
-TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret
-```
-
-### Docker Deployment
-
-1. **Build the Docker image:**
-   ```bash
-   docker build -t content-moderation-api .
-   ```
-
-2. **Run the container:**
-   ```bash
-   docker run -p 3000:3000 \
-     -e OPENAI_API_KEY=your_openai_key \
-     -e AI_PROVIDER=openai \
-     content-moderation-api
-   ```
-
-3. **Using Docker Compose:**
-   ```bash
-   docker-compose up -d
-   ```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `PORT` | Server port | `3000` | No |
-| `HOST` | Server host | `0.0.0.0` | No |
-| `NODE_ENV` | Environment | `development` | No |
-| `RATE_LIMIT_MAX` | Max requests per window | `10` | No |
-| `RATE_LIMIT_TIME_WINDOW` | Time window in ms | `60000` | No |
-| `AI_PROVIDER` | AI provider (`openai` or `perspective`) | `openai` | No |
-| `OPENAI_API_KEY` | OpenAI API key | - | Yes (if using OpenAI) |
-| `PERSPECTIVE_API_KEY` | Perspective API key | - | Yes (if using Perspective) |
-| `TWITTER_BEARER_TOKEN` | Twitter Bearer Token | - | Yes (for X posting) |
-| `TWITTER_API_KEY` | Twitter API Key | - | Yes (for X posting) |
-| `TWITTER_API_SECRET` | Twitter API Secret | - | Yes (for X posting) |
-| `TWITTER_ACCESS_TOKEN` | Twitter Access Token | - | Yes (for X posting) |
-| `TWITTER_ACCESS_TOKEN_SECRET` | Twitter Access Token Secret | - | Yes (for X posting) |
-| `LOG_LEVEL` | Logging level | `info` | No |
-| `LOG_PRETTY_PRINT` | Pretty print logs | `true` | No |
-
-### AI Provider Configuration
-
-#### OpenAI
-- Uses OpenAI's Moderation API
-- Detects: hate speech, violence, sexual content, self-harm
-- Set `AI_PROVIDER=openai` and provide `OPENAI_API_KEY`
-
-#### Perspective API
-- Uses Google's Perspective API
-- Detects: toxicity, severe toxicity, identity attack, threat, sexually explicit content
-- Set `AI_PROVIDER=perspective` and provide `PERSPECTIVE_API_KEY`
-
-## API Documentation
-
-### POST /api/v1/moderate
-
-Moderate text and image content for inappropriate or harmful content.
-
-**Request:**
+**Request Body:**
 ```json
 {
-  "text": "Text content to be moderated",
+  "text": "Content to moderate",
   "images": [
     {
       "url": "https://example.com/image.jpg",
+      "base64": "base64_encoded_image_data",
       "contentType": "image/jpeg"
-    },
+    }
+  ],
+  "videos": [
     {
-      "base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
-      "filename": "image.jpg",
-      "contentType": "image/jpeg"
+      "url": "https://example.com/video.mp4",
+      "base64": "base64_encoded_video_data",
+      "contentType": "video/mp4",
+      "duration": 30,
+      "frameRate": 30,
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": 10485760
     }
   ]
 }
@@ -147,228 +67,239 @@ Moderate text and image content for inappropriate or harmful content.
 **Response:**
 ```json
 {
-  "result": "ok" | "rejected",
-  "reason": "string (optional)",
-  "confidence": "number (optional)",
-  "flags": ["string"] (optional),
+  "result": "ok",
+  "reason": "All content is safe",
+  "confidence": 0.95,
+  "flags": [],
   "imageResults": [
     {
       "imageIndex": 0,
       "isSafe": true,
-      "reason": "string (optional)",
-      "confidence": 0.95,
-      "flags": ["string"],
-      "detectedObjects": ["person", "car"],
-      "adultContent": false,
-      "violence": false,
-      "hate": false
-    }
-  ]
-}
-```
-
-**Example Requests:**
-
-```bash
-# Safe content
-curl -X POST http://localhost:3000/api/v1/moderate \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello, how are you today?"}'
-
-# Response: {"result": "ok"}
-
-# Harmful content
-curl -X POST http://localhost:3000/api/v1/moderate \
-  -H "Content-Type: application/json" \
-  -d '{"text": "I hate you and want to hurt you"}'
-
-# Response: {"result": "rejected", "reason": "hate speech", "confidence": 0.95}
-```
-
-### POST /api/v1/x-post
-
-Post content to X (Twitter) with automatic moderation. Content is moderated before posting, and only safe content is published.
-
-**Request:**
-```json
-{
-  "text": "Tweet content (max 280 characters)",
-  "images": [
-    {
-      "url": "https://example.com/image.jpg",
-      "contentType": "image/jpeg"
+      "reason": "Image content is appropriate",
+      "confidence": 0.98,
+      "flags": []
     }
   ],
-  "replyTo": "1234567890123456789",
-  "quoteTweet": "1234567890123456789"
+  "videoResults": [
+    {
+      "videoIndex": 0,
+      "isSafe": true,
+      "reason": "Video content is safe",
+      "confidence": 0.92,
+      "flags": [],
+      "frameResults": [
+        {
+          "imageIndex": 0,
+          "isSafe": true,
+          "reason": "Frame content is appropriate",
+          "confidence": 0.95,
+          "flags": []
+        }
+      ],
+      "audioTranscription": "This is the transcribed audio content...",
+      "metadata": {
+        "duration": 30,
+        "frameCount": 10,
+        "resolution": "1920x1080",
+        "size": 10485760
+      }
+    }
+  ],
+  "metadata": {
+    "totalFrames": 11,
+    "totalDuration": 30,
+    "totalSize": 10485760
+  }
 }
 ```
 
-**Response:**
+### POST /x-post
+
+Posts content to X (Twitter) with automatic moderation.
+
+**Request Body:**
 ```json
 {
-  "success": true,
-  "tweetId": "1234567890123456789",
-  "moderationResult": {
-    "result": "ok",
-    "confidence": 0.95,
-    "flags": [],
-    "imageResults": []
-  }
+  "text": "Tweet content",
+  "images": [...],
+  "videos": [...],
+  "replyTo": "tweet_id_to_reply_to",
+  "quoteTweet": "tweet_id_to_quote"
 }
 ```
 
 ### GET /health
 
-Health check endpoint for monitoring.
+Health check endpoint.
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "timestamp": "2023-12-01T10:00:00.000Z",
-  "uptime": 3600,
-  "version": "1.0.0"
-}
+## Environment Variables
+
+```env
+# API Keys
+OPENAI_API_KEY=your_openai_api_key
+PERSPECTIVE_API_KEY=your_perspective_api_key
+OPENAI_VISION_MODEL=gpt-4o
+
+# AI Provider (openai or perspective)
+AI_PROVIDER=openai
+
+# Rate Limiting
+RATE_LIMIT_MAX=10
+RATE_LIMIT_TIME_WINDOW=60000
+
+# Twitter API (for X posting)
+TWITTER_BEARER_TOKEN=your_twitter_bearer_token
+TWITTER_API_KEY=your_twitter_api_key
+TWITTER_API_SECRET=your_twitter_api_secret
+TWITTER_ACCESS_TOKEN=your_twitter_access_token
+TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret
+
+# Server Configuration
+PORT=8000
+HOST=0.0.0.0
 ```
 
-## Rate Limiting
+## Installation
 
-- **Limit:** 10 requests per minute per IP address
-- **Response:** 429 Too Many Requests when exceeded
-- **Headers:** `X-RateLimit-*` headers included in responses
-- **Exemptions:** Health check endpoint (`/health`)
+1. **Clone the repository:**
+```bash
+git clone <repository-url>
+cd content-moderation-api
+```
 
-## Logging
+2. **Install dependencies:**
+```bash
+npm install
+```
 
-The API uses structured JSON logging with the following levels:
-- `error` - Application errors
-- `warn` - Rate limit exceeded, warnings
-- `info` - Request processing, moderation results
-- `debug` - Detailed debugging information
+3. **Install FFmpeg (required for video processing):**
+```bash
+# macOS
+brew install ffmpeg
+
+# Ubuntu/Debian
+sudo apt update
+sudo apt install ffmpeg
+
+# Windows
+# Download from https://ffmpeg.org/download.html
+```
+
+4. **Set up environment variables:**
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+5. **Build the project:**
+```bash
+npm run build
+```
+
+6. **Start the server:**
+```bash
+npm start
+```
 
 ## Development
 
-### Available Scripts
+```bash
+# Start development server with hot reload
+npm run dev
+
+# Run tests
+npm test
+
+# Run linter
+npm run lint
+```
+
+## Docker
 
 ```bash
-npm run dev          # Start development server with hot reload
-npm run build        # Build for production
-npm run start        # Start production server
-npm run test         # Run tests
-npm run lint         # Run ESLint
-npm run lint:fix     # Fix ESLint issues
+# Build image
+docker build -t content-moderation-api .
+
+# Run container
+docker run -p 8000:8000 --env-file .env content-moderation-api
+
+# Using Docker Compose
+docker-compose up -d
 ```
 
-### Project Structure
+## Testing
 
-```
-src/
-├── routes/          # API route handlers
-│   ├── moderate.ts  # Main moderation endpoint
-│   └── health.ts    # Health check endpoint
-├── plugins/         # Fastify plugins
-│   └── rate-limit.ts # Rate limiting configuration
-├── utils/           # Utility functions
-│   └── evaluateText.ts # Text evaluation logic
-├── types/           # TypeScript type definitions
-│   └── index.ts
-└── server.ts        # Main server file
+### Unit Tests
+```bash
+npm test
 ```
 
-## Security
-
-- **Helmet.js** - Security headers
-- **CORS** - Cross-origin resource sharing
-- **Rate Limiting** - IP-based request limiting
-- **Input Validation** - JSON schema validation
-- **Error Handling** - Secure error responses
-- **Docker Security** - Non-root user, minimal base image
-
-## Monitoring
-
-- **Health Check** - `/health` endpoint for load balancers
-- **Structured Logging** - JSON logs for log aggregation
-- **Error Tracking** - Comprehensive error logging
-- **Performance** - Request timing and metrics
-
-## Production Deployment
-
-### Docker Compose Example
-
-```yaml
-version: '3.8'
-services:
-  content-moderation-api:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - AI_PROVIDER=openai
-      - LOG_LEVEL=info
-      - LOG_PRETTY_PRINT=false
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+### Integration Tests
+```bash
+npm run test:coverage
 ```
 
-### Kubernetes Example
+### API Testing with curl
+```bash
+# Test health endpoint
+curl http://localhost:8000/health
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: content-moderation-api
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: content-moderation-api
-  template:
-    metadata:
-      labels:
-        app: content-moderation-api
-    spec:
-      containers:
-      - name: api
-        image: content-moderation-api:latest
-        ports:
-        - containerPort: 3000
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: api-secrets
-              key: openai-api-key
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+# Test moderation
+curl -X POST http://localhost:8000/api/v1/moderate \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello world!"}'
+
+# Test video moderation
+./curl-simple-video-test.sh
 ```
+
+### Examples
+See `examples/` directory for usage examples.
+
+## Architecture
+
+The application follows a modular architecture with:
+
+- **Plugins**: Rate limiting, moderation service, X API integration
+- **Services**: ModerationService (Singleton), XApiService
+- **Utils**: TextEvaluator, VideoAnalyzer
+- **Routes**: API endpoints for moderation and X posting
+
+See `ARCHITECTURE.md` for detailed architectural information.
+
+## Production Features
+
+- **Rate Limiting**: Prevents abuse with configurable limits
+- **Error Handling**: Comprehensive error handling and logging
+- **Health Checks**: Built-in health monitoring
+- **Docker Support**: Production-ready containerization
+- **Type Safety**: Full TypeScript coverage
+- **Testing**: Unit and integration tests
+- **Logging**: Structured JSON logging
+
+## Video Processing Requirements
+
+For video moderation to work properly, ensure:
+
+1. **FFmpeg is installed** on the system
+2. **Sufficient disk space** for temporary video processing
+3. **Adequate memory** for video frame extraction
+4. **Valid OpenAI API key** for audio transcription
+
+## Limitations
+
+- **Video Size**: Large videos may take longer to process
+- **Frame Rate**: Maximum 10 frames extracted per video
+- **Audio**: Only speech content is transcribed and analyzed
+- **Formats**: Depends on FFmpeg support for video formats
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
-5. Run linting and tests
-6. Submit a pull request
+4. Add tests
+5. Submit a pull request
 
 ## License
 

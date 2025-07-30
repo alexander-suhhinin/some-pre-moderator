@@ -25,9 +25,10 @@ You'll need the following credentials from your Twitter Developer Portal:
 - Navigate to "Keys and Tokens"
 - Copy the "API Key" and "API Key Secret"
 
-### **2. Bearer Token**
+### **2. Bearer Token (Optional)**
 - In the same "Keys and Tokens" section
-- Generate a "Bearer Token" (v2)
+- Generate a "Bearer Token" (v2) - used for some read-only operations
+- Note: For posting tweets, OAuth 1.0a is required
 
 ### **3. Access Token and Secret**
 - Create an "Access Token and Secret"
@@ -57,14 +58,16 @@ TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret_here
 
 ### **Step 2: Set App Permissions**
 1. In your app settings, go to "App permissions"
-2. Select "Read and Write" permissions
+2. Select "Read and Write" permissions (required for posting tweets)
 3. Save changes
+4. **Important**: OAuth 1.0a User Context authentication is required for posting tweets
 
 ### **Step 3: Generate Tokens**
 1. Go to "Keys and Tokens" tab
-2. Generate "Bearer Token" (v2)
+2. Generate "Bearer Token" (v2) - optional for read-only operations
 3. Create "Access Token and Secret" with "Read and Write" permissions
-4. Copy all credentials
+4. **Required for posting**: Copy both "Access Token" and "Access Token Secret"
+5. Copy all credentials
 
 ### **Step 4: Test Credentials**
 ```bash
@@ -122,6 +125,20 @@ services:
 - Rate limiting is handled by `@fastify/rate-limit`
 - Default: 10 requests per minute per IP
 - Configurable via environment variables
+
+## 🔐 **Authentication Methods**
+
+### **OAuth 1.0a User Context (Required for Posting)**
+- Used for posting tweets and uploading media
+- Requires Access Token and Access Token Secret
+- Provides user context for API calls
+- Required for `/users/me` endpoint validation
+
+### **Bearer Token (Optional)**
+- Used for read-only operations
+- App-level authentication
+- Not sufficient for posting tweets
+- Can be used for some API v2 endpoints
 
 ## 🔒 **Security Best Practices**
 
@@ -199,7 +216,8 @@ curl -X POST http://localhost:3000/api/v1/x-post \
 2. **"Invalid Twitter credentials"**
    - Ensure API keys are correct
    - Check app permissions (Read and Write required)
-   - Verify Bearer Token is valid
+   - Verify Access Token and Access Token Secret are valid
+   - **Note**: OAuth 1.0a User Context is required for posting tweets
 
 3. **"Media processing failed"**
    - Check image file size (max 5MB)

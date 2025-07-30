@@ -199,10 +199,8 @@ export class XApiService {
   private async makeRequest(method: string, endpoint: string, data?: any): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.credentials.bearerToken}`,
-      'Content-Type': 'application/json'
-    };
+    // Use OAuth 1.0a for all Twitter API v2 requests
+    const headers = await this.getOAuthHeaders(method, url, data);
 
     const options: RequestInit = {
       method,
@@ -211,6 +209,7 @@ export class XApiService {
 
     if (data && method !== 'GET') {
       options.body = JSON.stringify(data);
+      headers['Content-Type'] = 'application/json';
     }
 
     const response = await fetch(url, options);
@@ -289,7 +288,20 @@ export class XApiService {
    */
   async validateCredentials(): Promise<boolean> {
     try {
-      await this.makeRequest('GET', '/users/me');
+      // Use OAuth 1.0a for user context validation
+      const url = `${this.baseUrl}/users/me`;
+      const headers = await this.getOAuthHeaders('GET', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Twitter API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
       return true;
     } catch (error) {
       console.error('Invalid Twitter credentials:', error);

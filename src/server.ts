@@ -8,12 +8,20 @@ import { xApiPlugin } from './plugins/xApi';
 import { moderateRoute } from './routes/moderate';
 import { xPostRoute } from './routes/x-post';
 import { healthRoute } from './routes/health';
+import { ModerationService } from './services/moderationService';
 
 // Load environment variables
 dotenv.config();
 
+// Extend Fastify instance type
+declare module 'fastify' {
+  interface FastifyInstance {
+    moderationService: ModerationService;
+  }
+}
+
 const server = Fastify({
-  logger: process.env.LOG_PRETTY_PRINT === 'true'
+  logger: process.env.NODE_ENV === 'development'
     ? {
         level: process.env.LOG_LEVEL || 'info',
         transport: { target: 'pino-pretty' },
@@ -23,6 +31,9 @@ const server = Fastify({
       },
   trustProxy: true, // Trust proxy for proper IP detection
 });
+
+// Register moderation service as decorator at server level
+server.decorate('moderationService', ModerationService.getInstance());
 
 // Register security plugins
 async function registerPlugins() {

@@ -1,73 +1,53 @@
 import { FastifyPluginAsync } from 'fastify';
-import { ModerationRequest, ModerationResponse } from '../types';
+import { ModerationRequest, ModerationResponse, VideoModerationRequest, VideoModerationResponse } from '../types';
 
 const moderateSchema = {
   type: 'object',
-  required: ['text'],
   properties: {
-    text: {
-      type: 'string',
-      minLength: 1,
-      maxLength: 10000,
-      description: 'Text content to be moderated',
-    },
+    text: { type: 'string' },
     images: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
-          url: {
-            type: 'string',
-            format: 'uri',
-            description: 'URL of the image',
-          },
-          base64: {
-            type: 'string',
-            description: 'Base64 encoded image data',
-          },
-          filename: {
-            type: 'string',
-            description: 'Original filename of the image',
-          },
-          contentType: {
-            type: 'string',
-            description: 'MIME type of the image (e.g., image/jpeg)',
-          },
-        },
-        oneOf: [
-          { required: ['url'] },
-          { required: ['base64'] }
-        ],
-      },
-      maxItems: 4,
-      description: 'Array of images to be moderated (max 4 images)',
+          url: { type: 'string' },
+          base64: { type: 'string' },
+          contentType: { type: 'string' }
+        }
+      }
     },
+    videos: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string' },
+          base64: { type: 'string' },
+          contentType: { type: 'string' },
+          duration: { type: 'number' },
+          frameRate: { type: 'number' },
+          resolution: {
+            type: 'object',
+            properties: {
+              width: { type: 'number' },
+              height: { type: 'number' }
+            }
+          },
+          size: { type: 'number' }
+        }
+      }
+    }
   },
+  required: ['text']
 };
 
 const responseSchema = {
   type: 'object',
   properties: {
-    result: {
-      type: 'string',
-      enum: ['ok', 'rejected'],
-      description: 'Moderation result',
-    },
-    reason: {
-      type: 'string',
-      description: 'Reason for rejection (if applicable)',
-    },
-    confidence: {
-      type: 'number',
-      minimum: 0,
-      maximum: 1,
-      description: 'Confidence score of the moderation decision',
-    },
-    flags: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'List of flagged categories',
-    },
+    result: { type: 'string', enum: ['ok', 'rejected'] },
+    reason: { type: 'string' },
+    confidence: { type: 'number' },
+    flags: { type: 'array', items: { type: 'string' } },
     imageResults: {
       type: 'array',
       items: {
@@ -77,72 +57,117 @@ const responseSchema = {
           isSafe: { type: 'boolean' },
           reason: { type: 'string' },
           confidence: { type: 'number' },
-          flags: { type: 'array', items: { type: 'string' } },
-          detectedObjects: { type: 'array', items: { type: 'string' } },
-          adultContent: { type: 'boolean' },
-          violence: { type: 'boolean' },
-          hate: { type: 'boolean' },
-        },
-      },
-      description: 'Results of image moderation',
+          flags: { type: 'array', items: { type: 'string' } }
+        }
+      }
     },
-  },
-  required: ['result'],
+    videoResults: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          videoIndex: { type: 'number' },
+          isSafe: { type: 'boolean' },
+          reason: { type: 'string' },
+          confidence: { type: 'number' },
+          flags: { type: 'array', items: { type: 'string' } },
+          frameResults: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                imageIndex: { type: 'number' },
+                isSafe: { type: 'boolean' },
+                reason: { type: 'string' },
+                confidence: { type: 'number' },
+                flags: { type: 'array', items: { type: 'string' } }
+              }
+            }
+          },
+          audioTranscription: { type: 'string' },
+          metadata: {
+            type: 'object',
+            properties: {
+              duration: { type: 'number' },
+              frameCount: { type: 'number' },
+              resolution: { type: 'string' },
+              size: { type: 'number' }
+            }
+          }
+        }
+      }
+    },
+    metadata: {
+      type: 'object',
+      properties: {
+        totalFrames: { type: 'number' },
+        totalDuration: { type: 'number' },
+        totalSize: { type: 'number' }
+      }
+    }
+  }
 };
 
 export const moderateRoute: FastifyPluginAsync = async (fastify) => {
-
-  fastify.post<{ Body: ModerationRequest; Reply: ModerationResponse }>(
+  fastify.post<{ Body: VideoModerationRequest; Reply: VideoModerationResponse }>(
     '/moderate',
     {
       schema: {
         body: moderateSchema,
         response: {
           200: responseSchema,
-          400: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              message: { type: 'string' },
-            },
-          },
-          500: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              message: { type: 'string' },
-            },
-          },
-        },
+          500: responseSchema
+        }
       },
     },
     async (request, reply) => {
-      const { text, images } = request.body;
+      const { text, images, videos } = request.body;
 
       try {
         fastify.log.info({
           message: 'Processing moderation request',
-          textLength: text.length,
+          textLength: text?.length || 0,
           imageCount: images?.length || 0,
+          videoCount: videos?.length || 0,
           ip: request.ip,
         });
 
-        const result = await fastify.moderationService.moderateText(text, images);
+        // Проверяем, что сервис модерации доступен
+        if (!fastify.moderationService) {
+          fastify.log.error('ModerationService is not available');
+          return reply.status(500).send({
+            result: 'rejected' as const,
+            reason: 'Moderation service not available',
+            confidence: 0,
+            flags: ['service_unavailable'],
+            metadata: {
+              totalFrames: 0,
+              totalDuration: 0,
+              totalSize: 0
+            }
+          });
+        }
 
-        const response: ModerationResponse = {
+        const result = await fastify.moderationService.moderateText(text || '', images, videos);
+
+        const response: VideoModerationResponse = {
           result: result.isSafe ? 'ok' : 'rejected',
-          ...(result.reason && { reason: result.reason }),
-          ...(result.confidence && { confidence: result.confidence }),
-          ...(result.flags && { flags: result.flags }),
-          ...(result.imageResults && { imageResults: result.imageResults }),
+          reason: result.reason || 'No reason provided',
+          confidence: result.confidence || 0.5,
+          flags: result.flags || [],
+          imageResults: result.imageResults || [],
+          videoResults: result.videoResults || [],
+          metadata: {
+            totalFrames: (result.imageResults?.length || 0) + (result.videoResults?.reduce((sum: number, v: any) => sum + v.metadata.frameCount, 0) || 0),
+            totalDuration: result.videoResults?.reduce((sum: number, v: any) => sum + v.metadata.duration, 0) || 0,
+            totalSize: result.videoResults?.reduce((sum: number, v: any) => sum + v.metadata.size, 0) || 0
+          }
         };
 
         fastify.log.info({
           message: 'Moderation completed',
           result: response.result,
-          reason: response.reason,
           confidence: response.confidence,
-          imageResultsCount: response.imageResults?.length || 0,
           ip: request.ip,
         });
 
@@ -156,7 +181,14 @@ export const moderateRoute: FastifyPluginAsync = async (fastify) => {
 
         return reply.status(500).send({
           result: 'rejected' as const,
-          reason: 'Failed to process moderation request',
+          reason: 'Internal server error during moderation',
+          confidence: 0,
+          flags: ['internal_error'],
+          metadata: {
+            totalFrames: 0,
+            totalDuration: 0,
+            totalSize: 0
+          }
         });
       }
     }
