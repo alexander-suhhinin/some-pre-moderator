@@ -3,17 +3,17 @@ import { TextEvaluator } from '../evaluateText';
 
 test('TextEvaluator', async (t) => {
   t.test('should create instance with OpenAI provider', async (t) => {
-    const evaluator = new TextEvaluator('openai');
+    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
     t.ok(evaluator, 'should create instance');
   });
 
   t.test('should create instance with Perspective provider', async (t) => {
-    const evaluator = new TextEvaluator('perspective');
+    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'perspective');
     t.ok(evaluator, 'should create instance');
   });
 
   t.test('should handle empty text', async (t) => {
-    const evaluator = new TextEvaluator('openai');
+    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
     try {
       const result = await evaluator.evaluateText('');
       t.ok(result, 'should return result');
@@ -23,17 +23,17 @@ test('TextEvaluator', async (t) => {
   });
 
   t.test('should have evaluateText method', async (t) => {
-    const evaluator = new TextEvaluator('openai');
+    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
     t.ok(typeof evaluator.evaluateText === 'function', 'should have evaluateText method');
   });
 
   t.test('should have evaluateImage method', async (t) => {
-    const evaluator = new TextEvaluator('openai');
+    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
     t.ok(typeof evaluator.evaluateImage === 'function', 'should have evaluateImage method');
   });
 
   t.test('should handle API errors gracefully', async (t) => {
-    const evaluator = new TextEvaluator('openai');
+    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
     try {
       const result = await evaluator.evaluateText('Hello world');
       t.ok(result, 'should return result even on error');
@@ -43,8 +43,8 @@ test('TextEvaluator', async (t) => {
   });
 
   t.test('should handle different AI providers', async (t) => {
-    const openaiEvaluator = new TextEvaluator('openai');
-    const perspectiveEvaluator = new TextEvaluator('perspective');
+    const openaiEvaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
+    const perspectiveEvaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'perspective');
 
     t.ok(openaiEvaluator, 'should create OpenAI evaluator');
     t.ok(perspectiveEvaluator, 'should create Perspective evaluator');
