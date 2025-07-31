@@ -12,7 +12,8 @@
     "test:coverage": "node -r ./test-setup.js ./node_modules/.bin/tap --coverage",
     "test:jest": "jest",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "type-check": "tsc --noEmit"
   },
   "keywords": [
     "content-moderation",
