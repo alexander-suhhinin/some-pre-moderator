@@ -86,7 +86,12 @@ export const mockOpenaiResponses = {
           index: 0,
           message: {
             role: "assistant",
-            content: "This image appears to be safe and appropriate content."
+            content: JSON.stringify({
+              isSafe: true,
+              reason: "Image analyzed",
+              confidence: 0.9,
+              flags: []
+            })
           },
           finish_reason: "stop"
         }
@@ -107,7 +112,12 @@ export const mockOpenaiResponses = {
           index: 0,
           message: {
             role: "assistant",
-            content: "This image contains inappropriate content that violates content policies."
+            content: JSON.stringify({
+              isSafe: false,
+              reason: "Inappropriate content detected",
+              confidence: 0.8,
+              flags: ["violence"]
+            })
           },
           finish_reason: "stop"
         }
@@ -128,23 +138,72 @@ export const mockOpenaiResponses = {
   }
 };
 
+// Mock VideoAnalyzer class
+export class MockVideoAnalyzer {
+  async analyzeVideo(video: any, index: number): Promise<any> {
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    return {
+      videoIndex: index,
+      isSafe: true,
+      reason: 'Video analysis completed',
+      confidence: 0.9,
+      flags: [],
+      frameResults: [],
+      audioTranscription: 'Mock audio transcription',
+      audioModerationResult: {
+        isSafe: true,
+        confidence: 0.9,
+        flags: [],
+        reason: 'Audio is safe'
+      },
+      metadata: {
+        duration: 10,
+        frameCount: 300,
+        resolution: '1920x1080',
+        size: 1024000
+      }
+    };
+  }
+
+  async evaluateImage(image: any, index: number): Promise<any> {
+    await new Promise(resolve => setTimeout(resolve, 5));
+
+    return {
+      imageIndex: index,
+      isSafe: true,
+      reason: 'Image analyzed',
+      confidence: 0.9,
+      flags: []
+    };
+  }
+}
+
 // Mock fetch function for OpenAI API calls
 export const mockFetch = async (url: string, options: any) => {
   const { method, headers, body } = options;
 
   // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 10));
 
-    // Mock Moderation API
+  // Mock Moderation API
   if (url.includes('/moderations')) {
     const bodyText = body || '';
 
     // Return error for empty text
-    if (!bodyText.includes('"input"') || bodyText.includes('"input":""') || bodyText.includes('"input":"test text"')) {
+    if (!bodyText.includes('"input"') || bodyText.includes('"input":""')) {
       return {
         ok: false,
         status: 400,
+        statusText: 'Bad Request',
         json: async () => ({
+          error: {
+            message: "Empty text is not allowed",
+            type: "invalid_request_error"
+          }
+        }),
+        text: async () => JSON.stringify({
           error: {
             message: "Empty text is not allowed",
             type: "invalid_request_error"
@@ -158,7 +217,9 @@ export const mockFetch = async (url: string, options: any) => {
     return {
       ok: true,
       status: 200,
-      json: async () => isUnsafe ? mockOpenaiResponses.moderation.unsafe : mockOpenaiResponses.moderation.safe
+      statusText: 'OK',
+      json: async () => isUnsafe ? mockOpenaiResponses.moderation.unsafe : mockOpenaiResponses.moderation.safe,
+      text: async () => JSON.stringify(isUnsafe ? mockOpenaiResponses.moderation.unsafe : mockOpenaiResponses.moderation.safe)
     };
   }
 
@@ -167,7 +228,9 @@ export const mockFetch = async (url: string, options: any) => {
     return {
       ok: true,
       status: 200,
-      json: async () => mockOpenaiResponses.vision.safe
+      statusText: 'OK',
+      json: async () => mockOpenaiResponses.vision.safe,
+      text: async () => JSON.stringify(mockOpenaiResponses.vision.safe)
     };
   }
 
@@ -176,15 +239,30 @@ export const mockFetch = async (url: string, options: any) => {
     return {
       ok: true,
       status: 200,
-      json: async () => mockOpenaiResponses.whisper.transcription
+      statusText: 'OK',
+      json: async () => mockOpenaiResponses.whisper.transcription,
+      text: async () => JSON.stringify(mockOpenaiResponses.whisper.transcription)
     };
   }
 
-  // Default error response
+  // Handle video/image downloads - return success for any URL
+  if (url.includes('example.com') || url.includes('file://') || url.includes('http')) {
+    return {
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => new ArrayBuffer(1024), // Mock video/image data
+      json: async () => ({ success: true }),
+      text: async () => 'Mock response text'
+    };
+  }
+
+  // Default success response for any other URL
   return {
-    ok: false,
-    status: 400,
-    json: async () => ({ error: { message: "Unknown endpoint" } })
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: async () => ({ success: true }),
+    text: async () => JSON.stringify({ success: true })
   };
 };
 
@@ -194,9 +272,9 @@ export const mockOpenaiClient = {
     completions: {
       create: async (params: any) => {
         // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 10));
 
-        if (params.messages?.some((msg: any) => msg.content?.includes('image'))) {
+        if (params.messages?.some((msg: any) => msg.content?.some((content: any) => content.type === 'image_url'))) {
           return mockOpenaiResponses.vision.safe;
         }
 
@@ -210,7 +288,12 @@ export const mockOpenaiClient = {
               index: 0,
               message: {
                 role: "assistant",
-                content: "This is a safe response."
+                content: JSON.stringify({
+                  isSafe: true,
+                  reason: "Content analyzed",
+                  confidence: 0.9,
+                  flags: []
+                })
               },
               finish_reason: "stop"
             }
@@ -227,7 +310,7 @@ export const mockOpenaiClient = {
   audio: {
     transcriptions: {
       create: async (params: any) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 10));
         return mockOpenaiResponses.whisper.transcription;
       }
     }

@@ -2,6 +2,10 @@ import { test } from 'tap';
 import Fastify from 'fastify';
 import { moderationPlugin } from '../moderation';
 import { ModerationService } from '../../services/moderationService';
+import { mockFetch } from '../../__mocks__/openai';
+
+// Mock fetch globally
+global.fetch = mockFetch as any;
 
 // Extend Fastify instance type for tests
 declare module 'fastify' {
