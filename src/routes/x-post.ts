@@ -140,7 +140,7 @@ export const xPostRoute: FastifyPluginAsync = async (fastify) => {
           ip: request.ip,
         });
 
-        // Проверяем, что сервисы доступны
+        // Check that services are available
         if (!fastify.moderationService) {
           fastify.log.error('ModerationService is not available');
           return reply.status(500).send({

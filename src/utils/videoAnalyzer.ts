@@ -339,7 +339,7 @@ export class VideoAnalyzer {
 
       console.log(`📝 Raw OpenAI response for frame ${index}:`, content);
 
-      // Пытаемся извлечь JSON из ответа
+      // Try to extract JSON from response
       let jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
       if (!jsonMatch) {
         jsonMatch = content.match(/\{[\s\S]*\}/);
