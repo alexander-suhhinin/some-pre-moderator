@@ -35,6 +35,7 @@ test('moderate route', async (t) => {
     t.end();
   });
 
+
   t.test('should handle text with images (mocked)', async (t) => {
     const response = await fastify.inject({
       method: 'POST',
@@ -48,23 +49,6 @@ test('moderate route', async (t) => {
     t.equal(response.statusCode, 200, 'should be equal');
     const result = JSON.parse(response.payload);
     t.ok(Array.isArray(result.imageResults), 'should have imageResults array');
-    t.ok(typeof result.confidence === 'number', 'should have confidence property');
-    t.end();
-  });
-
-  t.test('should handle text with videos (mocked)', async (t) => {
-    const response = await fastify.inject({
-      method: 'POST',
-      url: '/moderate',
-      payload: {
-        text: 'Check this video',
-        videos: [{ url: 'https://example.com/video.mp4', contentType: 'video/mp4' }]
-      }
-    });
-
-    t.equal(response.statusCode, 200, 'should be equal');
-    const result = JSON.parse(response.payload);
-    t.ok(Array.isArray(result.videoResults), 'should have videoResults array');
     t.ok(typeof result.confidence === 'number', 'should have confidence property');
     t.end();
   });

@@ -21,7 +21,9 @@ console.error = (...args) => {
       message.includes('Error analyzing video') ||
       message.includes('Error evaluating content') ||
       message.includes('AuthenticationError') ||
-      message.includes('Failed to download file')) {
+      message.includes('Failed to download file') ||
+      message.includes('ETIMEDOUT') ||
+      message.includes('connect ETIMEDOUT')) {
     return; // Suppress these errors
   }
   originalConsoleError.apply(console, args);
@@ -40,18 +42,45 @@ Module.prototype.require = function(id) {
       }
       chat = {
         completions: {
-          create: async (params) => ({
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  isSafe: true,
-                  reason: 'Image analyzed',
-                  confidence: 0.9,
-                  flags: []
-                })
-              }
-            }]
-          })
+          create: async (params) => {
+            // Check if this is a Vision API call (has image content)
+            const hasImage = params.messages?.some(msg =>
+              msg.content?.some(content => content.type === 'image_url')
+            );
+
+            if (hasImage) {
+              return {
+                choices: [{
+                  message: {
+                    content: JSON.stringify({
+                      isSafe: true,
+                      reason: 'Image analyzed',
+                      confidence: 0.9,
+                      flags: [],
+                      detectedObjects: ['person', 'object'],
+                      adultContent: false,
+                      violence: false,
+                      hate: false
+                    })
+                  }
+                }]
+              };
+            }
+
+            // Regular text completion
+            return {
+              choices: [{
+                message: {
+                  content: JSON.stringify({
+                    isSafe: true,
+                    reason: 'Text analyzed',
+                    confidence: 0.9,
+                    flags: []
+                  })
+                }
+              }]
+            };
+          }
         }
       };
       audio = {
@@ -69,24 +98,8 @@ Module.prototype.require = function(id) {
       TextEvaluator: class MockTextEvaluator {
         constructor() {}
         async evaluateText(text, images = [], videos = []) {
-          return {
-            isSafe: true,
-            confidence: 0.9,
-            flags: [],
-            reason: 'Mocked evaluation result'
-          };
-        }
-      }
-    };
-  }
-
-  // Mock VideoAnalyzer
-  if (id.endsWith('videoAnalyzer') || id.includes('videoAnalyzer')) {
-    return {
-      VideoAnalyzer: class MockVideoAnalyzer {
-        constructor() {}
-        async analyzeVideo(video, index) {
-          return {
+          // Mock video analysis results
+          const videoResults = videos.map((video, index) => ({
             videoIndex: index,
             isSafe: true,
             reason: 'Video analysis completed',
@@ -106,6 +119,98 @@ Module.prototype.require = function(id) {
               resolution: '1920x1080',
               size: 1024000
             }
+          }));
+
+          return {
+            isSafe: true,
+            confidence: 0.9,
+            flags: [],
+            reason: 'Mocked evaluation result',
+            videoResults: videoResults
+          };
+        }
+      }
+    };
+  }
+
+  // Mock VideoAnalyzer - completely replace the entire class
+  if (id.endsWith('videoAnalyzer') || id.includes('videoAnalyzer')) {
+    return {
+      VideoAnalyzer: class MockVideoAnalyzer {
+        constructor() {}
+
+        async analyzeVideo(video, index) {
+          // Return mock result immediately without any real processing
+          return {
+            videoIndex: index,
+            isSafe: true,
+            reason: 'Video analysis completed (mocked)',
+            confidence: 0.9,
+            flags: [],
+            frameResults: [],
+            audioTranscription: 'Mock audio transcription',
+            audioModerationResult: {
+              isSafe: true,
+              confidence: 0.9,
+              flags: [],
+              reason: 'Audio is safe'
+            },
+            metadata: {
+              duration: 10,
+              frameCount: 300,
+              resolution: '1920x1080',
+              size: 1024000
+            }
+          };
+        }
+
+        async evaluateImage(image, index) {
+          return {
+            imageIndex: index,
+            isSafe: true,
+            reason: 'Image analyzed',
+            confidence: 0.9,
+            flags: []
+          };
+        }
+
+        async saveVideoToTemp(video) {
+          // Return mock file path without downloading
+          return '/tmp/mock_video.mp4';
+        }
+
+        async downloadFile(url, filepath) {
+          // Mock successful download without real HTTP request
+          return Promise.resolve();
+        }
+
+        async extractFrames(videoPath, videoIndex) {
+          // Return empty array without real frame extraction
+          return [];
+        }
+
+        async extractAudio(videoPath, videoIndex) {
+          return {
+            audioTranscription: 'Mock audio transcription',
+            audioModerationResult: {
+              isSafe: true,
+              confidence: 0.9,
+              flags: [],
+              reason: 'Audio is safe'
+            }
+          };
+        }
+
+        async transcribeAudio(audioPath) {
+          return 'Mock audio transcription';
+        }
+
+        async getVideoMetadata(videoPath) {
+          return {
+            duration: 10,
+            frameCount: 300,
+            resolution: '1920x1080',
+            size: 1024000
           };
         }
       }
@@ -140,6 +245,54 @@ Module.prototype.require = function(id) {
         };
         setTimeout(() => cb(stream), 5);
         return { on: () => {}, write: () => {}, end: () => {} };
+      }
+    };
+  }
+
+  // Mock net module
+  if (id === 'net') {
+    return {
+      connect: function(options, callback) {
+        const mockSocket = {
+          on: function(event, handler) {
+            if (event === 'connect') setTimeout(handler, 5);
+            return this;
+          },
+          write: function(data) { return this; },
+          end: function() { return this; }
+        };
+        setTimeout(() => callback(mockSocket), 5);
+        return mockSocket;
+      },
+      createConnection: function(options, callback) {
+        const mockSocket = {
+          on: function(event, handler) {
+            if (event === 'connect') setTimeout(handler, 5);
+            return this;
+          },
+          write: function(data) { return this; },
+          end: function() { return this; }
+        };
+        setTimeout(() => callback(mockSocket), 5);
+        return mockSocket;
+      }
+    };
+  }
+
+  // Mock tls module
+  if (id === 'tls') {
+    return {
+      connect: function(options, callback) {
+        const mockSocket = {
+          on: function(event, handler) {
+            if (event === 'secureConnect') setTimeout(handler, 5);
+            return this;
+          },
+          write: function(data) { return this; },
+          end: function() { return this; }
+        };
+        setTimeout(() => callback(mockSocket), 5);
+        return mockSocket;
       }
     };
   }

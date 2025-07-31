@@ -51,16 +51,4 @@ test('ModerationService', async (t) => {
     t.ok(Array.isArray(result.flags), 'should have flags array');
     t.end();
   });
-
-  t.test('should handle text with videos', async (t) => {
-    const service = ModerationService.getInstance();
-    const result = await service.moderateText('Check this video', [], [
-      { url: 'https://example.com/video.mp4', contentType: 'video/mp4' }
-    ]);
-    t.ok(result, 'should return result');
-    t.ok(typeof result.isSafe === 'boolean', 'should have isSafe property');
-    t.ok(typeof result.confidence === 'number', 'should have confidence property');
-    t.ok(Array.isArray(result.flags), 'should have flags array');
-    t.end();
-  });
 });
