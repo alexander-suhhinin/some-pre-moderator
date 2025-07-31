@@ -40,20 +40,27 @@ test('ModerationService', async (t) => {
     t.end();
   });
 
-  // Skip problematic tests that cause real API calls
-  t.test('should handle text with images (mocked)', async (t) => {
+  t.test('should handle text with images', async (t) => {
     const service = ModerationService.getInstance();
-    // Don't actually call moderateText with images to avoid OpenAI API calls
-    t.ok(service, 'service exists');
-    t.ok(typeof service.moderateText === 'function', 'has moderateText method');
+    const result = await service.moderateText('Check this image', [
+      { url: 'https://example.com/image.jpg', contentType: 'image/jpeg' }
+    ]);
+    t.ok(result, 'should return result');
+    t.ok(typeof result.isSafe === 'boolean', 'should have isSafe property');
+    t.ok(typeof result.confidence === 'number', 'should have confidence property');
+    t.ok(Array.isArray(result.flags), 'should have flags array');
     t.end();
   });
 
-  t.test('should handle text with videos (mocked)', async (t) => {
+  t.test('should handle text with videos', async (t) => {
     const service = ModerationService.getInstance();
-    // Don't actually call moderateText with videos to avoid HTTP requests
-    t.ok(service, 'service exists');
-    t.ok(typeof service.moderateText === 'function', 'has moderateText method');
+    const result = await service.moderateText('Check this video', [], [
+      { url: 'https://example.com/video.mp4', contentType: 'video/mp4' }
+    ]);
+    t.ok(result, 'should return result');
+    t.ok(typeof result.isSafe === 'boolean', 'should have isSafe property');
+    t.ok(typeof result.confidence === 'number', 'should have confidence property');
+    t.ok(Array.isArray(result.flags), 'should have flags array');
     t.end();
   });
 });
