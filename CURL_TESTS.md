@@ -1,36 +1,36 @@
 # 🎬 Video Moderation API - CURL Tests
 
-Этот документ содержит готовые curl команды для тестирования видео модерации API.
+This document contains ready-to-use curl commands for testing the video moderation API.
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### 1. Запустите API сервер:
+### 1. Start the API server:
 ```bash
 npm start
 ```
 
-### 2. Выберите один из тестов ниже и выполните его
+### 2. Choose one of the tests below and execute it
 
-## 📋 Доступные тесты
+## 📋 Available Tests
 
-### 🎯 Простой тест (без jq)
+### 🎯 Simple test (without jq)
 ```bash
 ./curl-simple-video-test.sh
 ```
 
-### 🎯 Простой тест с форматированием (требует jq)
+### 🎯 Simple test with formatting (requires jq)
 ```bash
 ./curl-single-video-test.sh
 ```
 
-### 🎯 Полный набор тестов (требует jq)
+### 🎯 Full test suite (requires jq)
 ```bash
 ./curl-video-tests.sh
 ```
 
-## 🔧 Ручные curl команды
+## 🔧 Manual curl commands
 
-### Тест одного видео
+### Single video test
 ```bash
 curl -X POST "http://127.0.0.1:8000/moderate" \
   -H "Content-Type: application/json" \
@@ -52,7 +52,7 @@ curl -X POST "http://127.0.0.1:8000/moderate" \
   }'
 ```
 
-### Тест смешанного контента (текст + изображения + видео)
+### Mixed content test (text + images + video)
 ```bash
 curl -X POST "http://127.0.0.1:8000/moderate" \
   -H "Content-Type: application/json" \
@@ -80,7 +80,7 @@ curl -X POST "http://127.0.0.1:8000/moderate" \
   }'
 ```
 
-### Тест нескольких видео
+### Multiple videos test
 ```bash
 curl -X POST "http://127.0.0.1:8000/moderate" \
   -H "Content-Type: application/json" \
@@ -113,7 +113,7 @@ curl -X POST "http://127.0.0.1:8000/moderate" \
   }'
 ```
 
-### Тест только текста (для сравнения)
+### Text-only test (for comparison)
 ```bash
 curl -X POST "http://127.0.0.1:8000/moderate" \
   -H "Content-Type: application/json" \
@@ -122,14 +122,14 @@ curl -X POST "http://127.0.0.1:8000/moderate" \
   }'
 ```
 
-### Проверка здоровья API
+### API health check
 ```bash
 curl -X GET "http://127.0.0.1:8000/health"
 ```
 
-## 📊 Ожидаемые ответы
+## 📊 Expected Responses
 
-### Успешный ответ для видео:
+### Successful video response:
 ```json
 {
   "result": "ok",
@@ -170,14 +170,14 @@ curl -X GET "http://127.0.0.1:8000/health"
 }
 ```
 
-## ⚠️ Требования
+## ⚠️ Requirements
 
-1. **API сервер запущен** на порту 8000
-2. **FFmpeg установлен** в системе
-3. **OpenAI API ключ** настроен в `.env`
-4. **jq** (опционально) для форматирования JSON
+1. **API server is running** on port 8000
+2. **FFmpeg is installed** in the system
+3. **OpenAI API key** is configured in `.env`
+4. **jq** (optional) for JSON formatting
 
-## 🔧 Установка зависимостей
+## 🔧 Installing Dependencies
 
 ### FFmpeg (macOS):
 ```bash
@@ -190,7 +190,7 @@ sudo apt update
 sudo apt install ffmpeg
 ```
 
-### jq (для форматирования):
+### jq (for formatting):
 ```bash
 # macOS
 brew install jq
@@ -199,23 +199,23 @@ brew install jq
 sudo apt install jq
 ```
 
-## 🐛 Устранение неполадок
+## 🐛 Troubleshooting
 
-### Ошибка "Connection refused":
-- Убедитесь, что API сервер запущен: `npm start`
+### Error "Connection refused":
+- Make sure the API server is running: `npm start`
 
-### Ошибка "FFmpeg not found":
-- Установите FFmpeg согласно инструкциям выше
+### Error "FFmpeg not found":
+- Install FFmpeg according to the instructions above
 
-### Ошибка "AuthenticationError":
-- Проверьте, что `OPENAI_API_KEY` правильно настроен в `.env`
+### Error "AuthenticationError":
+- Check that `OPENAI_API_KEY` is properly configured in `.env`
 
-### Ошибка "jq: command not found":
-- Установите jq или используйте `curl-simple-video-test.sh`
+### Error "jq: command not found":
+- Install jq or use `curl-simple-video-test.sh`
 
-## 📝 Примечания
+## 📝 Notes
 
-- Тестовые видео взяты с [sample-videos.com](https://sample-videos.com/)
-- Обработка видео может занять некоторое время
-- Результаты зависят от качества и содержания видео
-- Аудио транскрипция работает только для речи
+- Test videos are taken from [sample-videos.com](https://sample-videos.com/)
+- Video processing may take some time
+- Results depend on video quality and content
+- Audio transcription works only for speech
