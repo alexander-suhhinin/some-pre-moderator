@@ -1,52 +1,57 @@
 import { test } from 'tap';
 import { TextEvaluator } from '../evaluateText';
+import { mockFetch } from '../../__mocks__/openai';
+
+// Mock fetch globally
+global.fetch = mockFetch as any;
 
 test('TextEvaluator', async (t) => {
   t.test('should create instance with OpenAI provider', async (t) => {
-    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
-    t.ok(evaluator, 'should create instance');
-  });
-
-  t.test('should create instance with Perspective provider', async (t) => {
-    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'perspective');
-    t.ok(evaluator, 'should create instance');
+    const evaluator = new TextEvaluator('test-openai-key');
+    t.ok(evaluator, 'should create OpenAI evaluator');
+    t.end();
   });
 
   t.test('should handle empty text', async (t) => {
-    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
+    const evaluator = new TextEvaluator('test-openai-key');
     try {
-      const result = await evaluator.evaluateText('');
-      t.ok(result, 'should return result');
+      await evaluator.evaluateText('');
+      t.fail('should throw error');
     } catch (error) {
-      t.ok(error instanceof Error, 'should throw error with invalid API keys');
+      t.ok(error instanceof Error, 'should throw error');
     }
+    t.end();
   });
 
-  t.test('should have evaluateText method', async (t) => {
-    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
-    t.ok(typeof evaluator.evaluateText === 'function', 'should have evaluateText method');
-  });
-
-  t.test('should have evaluateImage method', async (t) => {
-    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
-    t.ok(typeof evaluator.evaluateImage === 'function', 'should have evaluateImage method');
-  });
-
-  t.test('should handle API errors gracefully', async (t) => {
-    const evaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
+  t.test('should handle text evaluation error', async (t) => {
+    const evaluator = new TextEvaluator('test-openai-key');
     try {
-      const result = await evaluator.evaluateText('Hello world');
-      t.ok(result, 'should return result even on error');
+      await evaluator.evaluateText('test text');
+      t.fail('should throw error');
     } catch (error) {
-      t.ok(error instanceof Error, 'should throw error with invalid API keys');
+      t.ok(error instanceof Error, 'should throw error');
     }
+    t.end();
   });
 
-  t.test('should handle different AI providers', async (t) => {
-    const openaiEvaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'openai');
-    const perspectiveEvaluator = new TextEvaluator('test-openai-key', 'test-perspective-key', 'perspective');
+  t.test('should handle image evaluation error', async (t) => {
+    const evaluator = new TextEvaluator('test-openai-key');
+    try {
+      await evaluator.evaluateImage({ url: 'invalid-url' }, 0);
+      t.pass('should handle image evaluation error gracefully');
+    } catch (error) {
+      t.fail('should not throw error for image evaluation');
+    }
+    t.end();
+  });
 
-    t.ok(openaiEvaluator, 'should create OpenAI evaluator');
-    t.ok(perspectiveEvaluator, 'should create Perspective evaluator');
+  t.test('should handle unsupported AI provider', async (t) => {
+    try {
+      new TextEvaluator('test-key', 'unsupported' as any);
+      t.fail('should throw error for unsupported provider');
+    } catch (error) {
+      t.ok(error instanceof Error, 'should throw error');
+    }
+    t.end();
   });
 });

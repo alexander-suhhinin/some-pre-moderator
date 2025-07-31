@@ -1,25 +1,27 @@
 {
   "name": "content-moderation-api",
   "version": "1.0.0",
-  "description": "Production-ready Fastify-based API service for content moderation using OpenAI and Perspective API",
+  "description": "Production-ready Fastify-based API service for content moderation using OpenAI API",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx src/server.ts",
     "test": "node -r ./test-setup.js ./node_modules/.bin/tap",
-    "test:watch": "tap --watch",
-    "test:coverage": "tap --coverage",
+    "test:watch": "node -r ./test-setup.js ./node_modules/.bin/tap --watch",
+    "test:coverage": "node -r ./test-setup.js ./node_modules/.bin/tap --coverage",
     "test:jest": "jest",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },
   "keywords": [
-    "fastify",
     "content-moderation",
+    "api",
+    "fastify",
     "openai",
-    "perspective-api",
-    "typescript"
+    "twitter-api",
+    "video-moderation",
+    "image-moderation"
   ],
   "author": "",
   "license": "MIT",

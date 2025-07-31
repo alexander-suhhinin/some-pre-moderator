@@ -53,7 +53,7 @@ export interface XPostResponse {
   error?: string;
 }
 
-export type AIProvider = 'openai' | 'perspective';
+export type AIProvider = 'openai';
 
 export interface OpenAIResponse {
   id: string;
@@ -91,43 +91,6 @@ export interface OpenAIImageResponse {
   }>;
 }
 
-export interface PerspectiveResponse {
-  attributeScores: {
-    TOXICITY: {
-      summaryScore: {
-        value: number;
-        type: string;
-      };
-    };
-    SEVERE_TOXICITY: {
-      summaryScore: {
-        value: number;
-        type: string;
-      };
-    };
-    IDENTITY_ATTACK: {
-      summaryScore: {
-        value: number;
-        type: string;
-      };
-    };
-    THREAT: {
-      summaryScore: {
-        value: number;
-        type: string;
-      };
-    };
-    SEXUALLY_EXPLICIT: {
-      summaryScore: {
-        value: number;
-        type: string;
-      };
-    };
-  };
-  languages: string[];
-  detectedLanguages: string[];
-}
-
 export interface VideoData {
   url?: string;
   base64?: string;
@@ -148,8 +111,8 @@ export interface VideoModerationResult {
   confidence: number;
   flags: string[];
   frameResults: ImageModerationResult[];
-  audioTranscription?: string;
-  audioModerationResult?: ModerationResult;
+  audioTranscription?: string | null;
+  audioModerationResult?: ModerationResult | null;
   metadata: {
     duration: number;
     frameCount: number;

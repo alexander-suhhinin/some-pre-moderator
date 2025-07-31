@@ -1,125 +1,161 @@
 import OpenAI from 'openai';
-import { ModerationResult, AIProvider, OpenAIResponse, PerspectiveResponse, ImageData, ImageModerationResult, OpenAIImageResponse, VideoData, VideoModerationResult } from '../types';
-import { VideoAnalyzer } from './videoAnalyzer';
+import { ModerationResult, AIProvider, OpenAIResponse, ImageData, ImageModerationResult, OpenAIImageResponse, VideoData, VideoModerationResult } from '../types';
+import { VideoAnalyzer } from '../utils/videoAnalyzer';
 
 export class TextEvaluator {
   private openai: any;
-  private perspectiveApiKey: string;
-  private perspectiveApiUrl: string;
-  private aiProvider: 'openai' | 'perspective';
+  private openaiApiKey: string;
+  private openaiApiUrl: string;
+  private aiProvider: 'openai';
   private videoAnalyzer: VideoAnalyzer;
 
   constructor(
     openaiApiKey: string,
-    perspectiveApiKey: string,
-    aiProvider: 'openai' | 'perspective' = 'openai'
+    aiProvider: 'openai' = 'openai'
   ) {
-    this.perspectiveApiKey = perspectiveApiKey;
-    this.perspectiveApiUrl = process.env.PERSPECTIVE_API_URL || 'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze';
+    this.openaiApiKey = openaiApiKey;
+    this.openaiApiUrl = process.env.OPENAI_API_URL || 'https://api.openai.com/v1';
     this.aiProvider = aiProvider;
 
     if (aiProvider === 'openai') {
       this.openai = new OpenAI({
         apiKey: openaiApiKey,
       });
+    } else {
+      throw new Error(`Unsupported AI provider: ${aiProvider}`);
     }
 
     this.videoAnalyzer = new VideoAnalyzer();
   }
 
-  async evaluateText(text: string, images?: ImageData[], videos?: VideoData[]): Promise<ModerationResult> {
+  async evaluateText(
+    text: string,
+    images: ImageData[] = [],
+    videos: VideoData[] = []
+  ): Promise<ModerationResult> {
     try {
-      const results: (ModerationResult | ImageModerationResult | VideoModerationResult)[] = [];
+      // Evaluate text content
+      const textResult = await this.evaluateTextContent(text);
 
-      if (text && text.trim()) {
-        const textResult = await this.evaluateTextContent(text);
-        results.push(textResult);
-      }
-
-      if (images && images.length > 0) {
-        for (let i = 0; i < images.length; i++) {
-          const image = images[i];
-          if (image) {
+      // Evaluate images if provided
+      const imageResults: ImageModerationResult[] = [];
+      for (let i = 0; i < images.length; i++) {
+        const image = images[i];
+        if (image) {
+          try {
             const imageResult = await this.evaluateImage(image, i);
-            results.push(imageResult);
+            imageResults.push(imageResult);
+          } catch (error) {
+            console.error(`Error evaluating image ${i}:`, error);
+            imageResults.push({
+              imageIndex: i,
+              isSafe: true,
+              confidence: 0,
+              flags: ['error']
+            });
           }
         }
       }
 
-      if (videos && videos.length > 0) {
+      // Evaluate videos if provided
+      const videoResults: VideoModerationResult[] = [];
+      if (videos.length > 0) {
+        const videoAnalyzer = new VideoAnalyzer();
         for (let i = 0; i < videos.length; i++) {
           const video = videos[i];
           if (video) {
-            const videoResult = await this.videoAnalyzer.analyzeVideo(video, i);
-            results.push(videoResult);
+            try {
+              const videoResult = await videoAnalyzer.analyzeVideo(video, i);
+              videoResults.push(videoResult);
+            } catch (error) {
+              console.error(`Error analyzing video ${i}:`, error);
+              videoResults.push({
+                videoIndex: i,
+                isSafe: true,
+                reason: 'Video analysis failed',
+                confidence: 0,
+                flags: ['error'],
+                frameResults: [],
+                metadata: {
+                  duration: 0,
+                  frameCount: 0,
+                  resolution: 'unknown',
+                  size: 0
+                }
+              });
+            }
           }
         }
       }
 
-      return this.combineResults(results);
+      // Combine all results
+      return this.combineResults(textResult, imageResults, videoResults);
     } catch (error) {
       console.error('Error evaluating content:', error);
-      return {
-        isSafe: false,
-        reason: 'Failed to evaluate content',
-        confidence: 0.5,
-        flags: ['evaluation_error']
-      };
+      throw error;
     }
   }
 
   private async evaluateTextContent(text: string): Promise<ModerationResult> {
     if (this.aiProvider === 'openai') {
       return await this.evaluateWithOpenAI(text);
-    } else {
-      return await this.evaluateWithPerspective(text);
     }
+
+    throw new Error(`Unsupported AI provider: ${this.aiProvider}`);
   }
 
-  private combineResults(results: (ModerationResult | ImageModerationResult | VideoModerationResult)[]): ModerationResult {
-    if (results.length === 0) {
+  private combineResults(textResult: ModerationResult, imageResults: ImageModerationResult[], videoResults: VideoModerationResult[]): ModerationResult {
+    const allResults = [textResult, ...imageResults, ...videoResults];
+
+    if (allResults.length === 0) {
       return {
         isSafe: true,
         reason: 'No content to evaluate',
         confidence: 1.0,
-        flags: []
+        flags: [],
+        imageResults: [],
+        videoResults: []
       };
     }
 
     // Checking for rejected content
-    const rejectedResults = results.filter(result => {
-      if ('result' in result) {
-        return result.result === 'rejected';
+    const rejectedResults = allResults.filter(result => {
+      if ('isFlagged' in result) {
+        return result.isFlagged;
       }
       return !result.isSafe;
     });
 
     if (rejectedResults.length > 0) {
       const reasons = rejectedResults.map(result => {
-        if ('result' in result) {
+        if ('isFlagged' in result) {
           return result.reason || 'Content rejected';
         }
         return result.reason || 'Unsafe content detected';
       });
 
-      const allFlags = results.flatMap(result => result.flags || []);
+      const allFlags = allResults.flatMap(result => result.flags || []);
 
       return {
         isSafe: false,
         reason: reasons.join('; '),
-        confidence: this.calculateAverageConfidence(results),
-        flags: [...new Set(allFlags)]
+        confidence: this.calculateAverageConfidence(allResults),
+        flags: [...new Set(allFlags)],
+        imageResults,
+        videoResults
       };
     }
 
     // All ok.
-    const allFlags = results.flatMap(result => result.flags || []);
+    const allFlags = allResults.flatMap(result => result.flags || []);
 
     return {
       isSafe: true,
       reason: 'All content is safe',
-      confidence: this.calculateAverageConfidence(results),
-      flags: [...new Set(allFlags)]
+      confidence: this.calculateAverageConfidence(allResults),
+      flags: [...new Set(allFlags)],
+      imageResults,
+      videoResults
     };
   }
 
@@ -204,10 +240,10 @@ export class TextEvaluator {
         hate: analysis.hate || false
       };
     } catch (error) {
-      console.error(`Error evaluating image ${index}:`, error);
+      console.error(`Error evaluating image:`, error);
       // Return safe by default if image analysis fails
       return {
-        imageIndex: index,
+        imageIndex: 0, // Default index
         isSafe: true,
         reason: 'Image analysis failed, defaulting to safe',
         confidence: 0.5
@@ -216,136 +252,60 @@ export class TextEvaluator {
   }
 
   private async evaluateWithOpenAI(text: string): Promise<ModerationResult> {
-    const response = await this.openai.moderations.create({
-      input: text,
+    console.log('Sending request to OpenAI Moderation API:', {
+      text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+      apiUrl: this.openaiApiUrl
     });
 
-    const result = response.results[0];
-    if (!result) {
-      throw new Error('No moderation result received from OpenAI');
-    }
-    const categories = result.categories;
-    const categoryScores = result.category_scores;
-
-    // Check if any category is flagged
-    const flaggedCategories = Object.entries(categories)
-      .filter(([_, isFlagged]) => isFlagged)
-      .map(([category, _]) => category);
-
-    if (flaggedCategories.length === 0) {
-      return {
-        isSafe: true,
-        confidence: 1.0,
-      };
-    }
-
-    // Get the highest score among flagged categories
-    const maxScore = Math.max(...flaggedCategories.map(cat => categoryScores[cat as keyof typeof categoryScores] || 0));
-
-    // Map category names to human-readable reasons
-    const reasonMap: Record<string, string> = {
-      hate: 'hate speech',
-      'hate/threatening': 'threatening hate speech',
-      'self-harm': 'self-harm content',
-      sexual: 'sexual content',
-      'sexual/minors': 'sexual content involving minors',
-      violence: 'violent content',
-      'violence/graphic': 'graphic violent content',
-    };
-
-    const primaryReason = flaggedCategories[0];
-    if (!primaryReason) {
-      throw new Error('No flagged categories found');
-    }
-    const reason = reasonMap[primaryReason] || primaryReason;
-
-    return {
-      isSafe: false,
-      reason,
-      confidence: maxScore,
-      flags: flaggedCategories,
-    };
-  }
-
-  private async evaluateWithPerspective(text: string): Promise<ModerationResult> {
-    const requestBody = {
-      comment: {
-        text: text,
-      },
-      requestedAttributes: {
-        TOXICITY: {},
-        SEVERE_TOXICITY: {},
-        IDENTITY_ATTACK: {},
-        THREAT: {},
-        SEXUALLY_EXPLICIT: {},
-      },
-    };
-
-    const response = await fetch(`${this.perspectiveApiUrl}?key=${this.perspectiveApiKey}`, {
+    const response = await fetch(`${this.openaiApiUrl}/moderations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.openaiApiKey}`
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        input: text,
+        model: 'text-moderation-latest'
+      })
     });
 
+    console.log('OpenAI Moderation API response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`Perspective API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('OpenAI Moderation API error response:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = await response.json() as PerspectiveResponse;
-    const scores = data.attributeScores;
+    const data = await response.json() as OpenAIResponse;
+    console.log('OpenAI Moderation API response data:', JSON.stringify(data, null, 2));
 
-    // Define thresholds for different categories
-    const thresholds = {
-      TOXICITY: 0.7,
-      SEVERE_TOXICITY: 0.5,
-      IDENTITY_ATTACK: 0.6,
-      THREAT: 0.5,
-      SEXUALLY_EXPLICIT: 0.7,
-    };
+    const results = data.results[0];
+    if (!results) {
+      throw new Error('No results received from OpenAI Moderation API');
+    }
+    const categories = results.categories;
+    const categoryScores = results.category_scores;
 
-    const flaggedCategories: string[] = [];
-    let maxScore = 0;
+    const flags: string[] = [];
+    let maxConfidence = 0;
 
-    // Check each category against its threshold
-    Object.entries(scores).forEach(([category, scoreData]) => {
-      const score = scoreData.summaryScore.value;
-      const threshold = thresholds[category as keyof typeof thresholds] || 0.5;
-
-      if (score > threshold) {
-        flaggedCategories.push(category.toLowerCase().replace('_', ' '));
-        maxScore = Math.max(maxScore, score);
+    // Check each category
+    Object.entries(categories).forEach(([category, flagged]) => {
+      if (flagged) {
+        flags.push(category);
+        const score = categoryScores[category as keyof typeof categoryScores];
+        if (score > maxConfidence) {
+          maxConfidence = score;
+        }
       }
     });
 
-    if (flaggedCategories.length === 0) {
-      return {
-        isSafe: true,
-        confidence: 1.0,
-      };
-    }
-
-    // Map category names to human-readable reasons
-    const reasonMap: Record<string, string> = {
-      'toxicity': 'toxic content',
-      'severe toxicity': 'severely toxic content',
-      'identity attack': 'identity attack',
-      'threat': 'threatening content',
-      'sexually explicit': 'sexually explicit content',
-    };
-
-    const primaryReason = flaggedCategories[0];
-    if (!primaryReason) {
-      throw new Error('No flagged categories found');
-    }
-    const reason = reasonMap[primaryReason] || primaryReason;
-
     return {
-      isSafe: false,
-      reason,
-      confidence: maxScore,
-      flags: flaggedCategories,
+      isSafe: flags.length === 0,
+      confidence: maxConfidence,
+      flags,
+      reason: flags.length > 0 ? `Content flagged for: ${flags.join(', ')}` : 'Content is safe'
     };
   }
 }
