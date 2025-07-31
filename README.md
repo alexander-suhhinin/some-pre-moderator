@@ -1,66 +1,45 @@
 # Content Moderation API
 
-A production-ready Fastify-based API service for content moderation using OpenAI API. This service provides comprehensive content analysis including text, image, and video moderation with integration to X (Twitter) for posting approved content.
+A production-ready Fastify-based API service for content moderation using OpenAI API, with support for text, image, and video moderation, plus Twitter (X) integration.
 
 ## Features
 
-- **Multi-Modal Content Moderation**: Text, image, and video analysis
-- **OpenAI Integration**: Uses OpenAI's Moderation API, Vision API, and Whisper API
-- **X (Twitter) Integration**: Post approved content directly to X
-- **Video Pre-moderation**: Frame extraction and audio transcription analysis
-- **Rate Limiting**: Built-in rate limiting for API protection
-- **Docker Support**: Containerized deployment
-- **TypeScript**: Full type safety throughout the codebase
-- **Comprehensive Testing**: Unit and integration tests with mocking
+- **Text Moderation**: Real-time text content analysis using OpenAI Moderation API
+- **Image Moderation**: Image analysis using OpenAI Vision API
+- **Video Moderation**: Video frame extraction and analysis with audio transcription
+- **Twitter Integration**: Post content to Twitter (X) with automatic moderation
+- **Rate Limiting**: Built-in rate limiting with configurable limits
+- **Health Monitoring**: Health check endpoints
+- **Comprehensive Testing**: 131 tests with 66.76% code coverage
+- **TypeScript**: Full TypeScript support with strict type checking
+- **ESLint**: Code quality enforcement with ESLint
 
-## API Endpoints
+## Quick Start
 
-### POST `/api/v1/moderate`
-Moderate text, images, and videos.
+### Prerequisites
 
-**Request Body:**
-```json
-{
-  "text": "Content to moderate",
-  "images": [
-    {
-      "url": "https://example.com/image.jpg"
-    }
-  ],
-  "videos": [
-    {
-      "url": "https://example.com/video.mp4"
-    }
-  ]
-}
+- Node.js 18+
+- FFmpeg (for video processing)
+- OpenAI API key
+- Twitter API credentials (optional)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd content-moderation-api
+
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env
+
+# Edit .env with your API keys
 ```
 
-**Response:**
-```json
-{
-  "result": "ok",
-  "confidence": 0.95,
-  "flags": [],
-  "imageResults": [...],
-  "videoResults": [...]
-}
-```
-
-### POST `/api/v1/x-post`
-Post content to X (Twitter) after moderation.
-
-**Request Body:**
-```json
-{
-  "text": "Content to post",
-  "images": [...]
-}
-```
-
-### GET `/health`
-Health check endpoint.
-
-## Environment Variables
+### Environment Variables
 
 ```bash
 # Server Configuration
@@ -71,116 +50,173 @@ NODE_ENV=development
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_API_URL=https://api.openai.com/v1
-OPENAI_VISION_MODEL=gpt-4o
 
-# AI Provider
-AI_PROVIDER=openai
-
-# Twitter API Configuration
-TWITTER_BEARER_TOKEN=your_twitter_bearer_token
+# Twitter API Configuration (optional)
 TWITTER_API_KEY=your_twitter_api_key
 TWITTER_API_SECRET=your_twitter_api_secret
 TWITTER_ACCESS_TOKEN=your_twitter_access_token
 TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret
+TWITTER_BEARER_TOKEN=your_twitter_bearer_token
 
 # Rate Limiting
 RATE_LIMIT_MAX=100
-RATE_LIMIT_TIME_WINDOW=60000
+RATE_LIMIT_WINDOW_MS=900000
 ```
 
-## Installation
+### Running the Application
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd content-moderation-api
-```
+# Development mode
+npm run dev
 
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Set up environment variables:
-```bash
-cp env.example .env
-# Edit .env with your API keys
-```
-
-4. Build the project:
-```bash
+# Production build
 npm run build
+npm start
+```
+
+## API Endpoints
+
+### Health Check
+```
+GET /health
+```
+
+### Content Moderation
+```
+POST /api/v1/moderate
+Content-Type: application/json
+
+{
+  "text": "Text to moderate",
+  "images": ["https://example.com/image.jpg"],
+  "videos": ["https://example.com/video.mp4"]
+}
+```
+
+### Twitter Post
+```
+POST /api/v1/x-post
+Content-Type: application/json
+
+{
+  "text": "Tweet content",
+  "images": ["https://example.com/image.jpg"],
+  "videos": ["https://example.com/video.mp4"]
+}
 ```
 
 ## Development
 
-Start the development server:
+### Available Scripts
+
 ```bash
-npm run dev
+# Development
+npm run dev              # Start development server
+npm run build           # Build for production
+npm start               # Start production server
+
+# Testing
+npm test                # Run all tests
+npm run test:watch      # Run tests in watch mode
+npm run test:coverage   # Run tests with coverage
+
+# Code Quality
+npm run lint            # Run ESLint
+npm run lint:fix        # Fix ESLint issues
+npm run type-check      # Run TypeScript type checking
 ```
 
-The API will be available at `http://localhost:8000`.
+### Testing
 
-## Docker
+The project includes comprehensive tests:
+- **131 total tests** with 66.76% code coverage
+- Unit tests for services and utilities
+- Integration tests for routes and plugins
+- Mock implementations for external APIs
 
-Build and run with Docker Compose:
 ```bash
-docker-compose up --build
-```
-
-## Testing
-
-Run tests:
-```bash
+# Run all tests
 npm test
-```
 
-Run tests in watch mode:
-```bash
-npm run test:watch
-```
-
-Run tests with coverage:
-```bash
+# Run tests with coverage
 npm run test:coverage
 ```
 
-## Video Moderation
+## GitHub Actions
 
-The service supports comprehensive video moderation:
+This project includes automated CI/CD with GitHub Actions that runs on every pull request and push to main branches.
 
-1. **Frame Extraction**: Extracts frames at regular intervals for image analysis
-2. **Audio Transcription**: Uses OpenAI Whisper API to transcribe audio content
-3. **Combined Analysis**: Aggregates results from visual and audio analysis
+### Workflow Features
 
-### Requirements
+- **Multi-Node Testing**: Tests against Node.js 18.x and 20.x
+- **Linting**: ESLint code quality checks
+- **Type Checking**: TypeScript compilation verification
+- **Test Execution**: Full test suite with coverage
+- **Caching**: npm dependency caching for faster builds
 
-- FFmpeg must be installed for video processing
-- OpenAI API key with access to Vision and Whisper APIs
+### Workflow Triggers
 
-### Example Video Moderation Request
+- Pull requests to `main`, `master`, or `develop` branches
+- Direct pushes to `main`, `master`, or `develop` branches
+
+### Workflow Steps
+
+1. **Checkout**: Clone the repository
+2. **Setup Node.js**: Install specified Node.js version
+3. **Install Dependencies**: Run `npm ci` with caching
+4. **Lint**: Run ESLint checks
+5. **Type Check**: Verify TypeScript compilation
+6. **Test**: Execute test suite
+7. **Coverage Upload**: Upload coverage reports to Codecov (optional)
+
+### Status Badge
+
+Add this badge to your README:
+
+```markdown
+![CI](https://github.com/your-username/your-repo/workflows/CI%20-%20Lint%20%26%20Test/badge.svg)
+```
+
+## Docker
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/moderate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Video description",
-    "videos": [
-      {
-        "url": "https://example.com/video.mp4"
-      }
-    ]
-  }'
+# Build image
+docker build -t content-moderation-api .
+
+# Run container
+docker run -p 8000:8000 --env-file .env content-moderation-api
 ```
 
 ## Architecture
 
-The service uses a modular architecture with:
+### Project Structure
 
-- **Fastify Plugins**: Modular functionality (moderation, rate limiting, X API)
-- **Services**: Business logic encapsulation (ModerationService, XApiService)
-- **Utils**: Utility classes for specific tasks (TextEvaluator, VideoAnalyzer)
-- **Types**: TypeScript type definitions for API contracts
+```
+src/
+├── plugins/           # Fastify plugins
+│   ├── moderation.ts  # Moderation service plugin
+│   ├── rate-limit.ts  # Rate limiting plugin
+│   └── xApi.ts        # Twitter API plugin
+├── routes/            # API routes
+│   ├── health.ts      # Health check endpoint
+│   ├── moderate.ts    # Content moderation endpoint
+│   └── x-post.ts      # Twitter posting endpoint
+├── services/          # Business logic services
+│   ├── moderationService.ts
+│   └── xApiService.ts
+├── utils/             # Utility functions
+│   ├── evaluateText.ts
+│   └── videoAnalyzer.ts
+├── types/             # TypeScript type definitions
+└── __mocks__/         # Test mocks
+```
+
+### Key Components
+
+- **ModerationService**: Singleton service for content moderation
+- **XApiService**: Twitter API integration with OAuth 1.0a
+- **TextEvaluator**: OpenAI API integration for text/image analysis
+- **VideoAnalyzer**: Video processing with FFmpeg integration
 
 ## Contributing
 
@@ -188,9 +224,10 @@ The service uses a modular architecture with:
 2. Create a feature branch
 3. Make your changes
 4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
+5. Ensure all tests pass: `npm test`
+6. Run linting: `npm run lint`
+7. Submit a pull request
 
 ## License
 
-MIT License
+MIT License - see LICENSE file for details.
